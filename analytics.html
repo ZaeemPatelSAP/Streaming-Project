@@ -1,0 +1,172 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <!--<canvas id="myChart"></canvas>
+  <canvas id="myPie"></canvas>-->
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <link rel="stylesheet" type="text/css" href="css/style.css"/>
+  <link rel="stylesheet" type="text/css" href="css/materialize.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.4.0/Chart.min.js"></script>
+  <script src="js/sorttable.js"></script>
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+  <script src="https://rawgit.com/chartjs/chartjs-plugin-annotation/master/chartjs-plugin-annotation.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/chartjs-plugin-zoom.js"></script>
+  <script src="js/materialize.js"></script>
+  <link rel="icon" href="sap.ico">
+  <title>Freezer Monitoring Visualization</title>
+</head>
+
+<body>
+<div class="title">
+  <img class="logo" src="sap.png"/>
+  <h3>SAP HANA Freezer Monitoring Data Analytics</h3>
+</div>
+
+<div class="navbar">
+  <div style="margin:auto;display: table;">
+    <ul>
+      <li><button id="dash-btn" class="active-btn" onclick="switchTab('dash')">Dashboard</button></li>
+      <li><button id="graph-btn" class="inactive-btn" onclick="switchTab('graph')">Machine Info.</button></li>
+      <li><button id="config-btn" class="inactive-btn" onclick="switchTab('config')">Configurations</button></li>
+    </ul>
+  </div>
+</div>
+
+
+<div class="dash-tab">
+  <div id="dashboard-chart"></div>
+    <div>
+      <table id="dashboard">
+          <tr>
+            <th>MACHINEID</th>
+            <th>GRADIENT</th>
+            <th>TEMPERATURE</th>
+            <th>MIN_TEMP</th>
+            <th>MAX_TEMP</th>
+            <th>POWER</th>
+            <th>DOOR</th>
+            <th>ALARMS</th>
+          </tr>
+      </table>
+    </div>
+</div>
+
+<div class="graph-tab row container" style="padding-top: 0px;">
+  <div class = "col s8 chart-wrapper">
+    <div class = "chart chart-style">
+        <canvas id="myChart" height="500" width="2000"></canvas>
+    </div>
+    <button id="reset-button" onclick="resetZoom()"> Reset Zoom </button>
+  </div>
+  <div class = "info col s4">
+    <h5 id = "machine-info-title" onclick="showMachineInfo('machine-info', 'machine-info-arrow')"><i id="machine-info-arrow" 
+      class="fa fa-angle-right" style="font-size:24px"></i> Machine Info: </h5> 
+      <ul id = "machine-info">
+        <li id = "machine-id"></li>
+        <li id = "machine-type"></li>
+        <li id = "machine-loc"></li>
+        <li id = "current-status"></li>
+      </ul>
+    <h5 id = "inventory-title" onclick="showMachineInfo('inventory-table', 'inventory-table-arrow')"><i id="inventory-table-arrow" 
+      class="fa fa-angle-right" style="font-size:24px"></i> Inventory: </h5>
+      <table class="GeneratedTable sortable" id ="inventory-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>SKU</th>
+            <th>Price ($)</th>
+            <th>Quantity</th>
+            <th>Total Value ($)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Product 1</td>
+            <td>987621</td>
+            <td>3.99</td>
+            <td>92</td>
+            <td>367.08</td>
+          </tr>
+          <tr>
+            <td>Product 2</td>
+            <td>658762</td>
+            <td>7.29</td>
+            <td>138</td>
+            <td>1006.02</td>
+          </tr>
+          <tr>
+            <td>Product 3</td>
+            <td>746249</td>
+            <td>0.88</td>
+            <td>172</td>
+            <td>151.36</td>
+          </tr>
+        </tbody>
+      </table>
+    <h5 id = "alarm-history-title" onclick="showMachineInfo('alarm-history-table', 'alarm-table-arrow')"><i id="alarm-table-arrow" 
+      class="fa fa-angle-right" style="font-size:24px"></i> Alarm History: </h5>
+      <table class="GeneratedTable sortable" id ="alarm-history-table">
+        <thead>
+          <tr>
+            <th>Alarm Type</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Duration (mins.)</th>
+          </tr>
+        </thead>
+        <tbody>
+        </tbody>
+      </table>
+  </div>
+</div>
+
+<div class="config-tab">
+  <div class="row">
+    <form>
+      <div class = "input-field col s4">
+        <input type="text" id="customServer"  onfocus="blankInput(this.id);" placeholder='<server/IP/FQDN>' value = "mo-a90ef26e8.mo.sap.corp"/>
+        <label for="customServerREST">Server address</label>
+      </div>
+      <div class = "input-field col s2">
+        <input type="text" id="customPort"  onfocus="blankInput(this.id);" placeholder='<port>' value = "9093"/>
+        <label for="customPortREST">Port</label>
+      </div>
+      <div class = "input-field col s2">
+        <input type="text" id="workspace" value="default" placeholder='Enter Here'/>
+        <label for="workspaceREST">Workspace name</label>
+      </div>
+      <div class = "input-field col s2">
+        <input type="text" id="project" value="freezer_monitoring_final" placeholder='Enter Here'/>
+        <label for="projectREST">Project name</label>
+      </div>
+      <div class = "input-field col s2">
+        <input type="text" id="streamName" value="MACHINEDATA" placeholder='Enter Here'/><br><br>
+        <label for="streamName">Stream name</label>
+      </div>
+      <div class = "input-field col s4">
+        <input type="text" id="username" placeholder='Enter Here' value="STREAMING_USER"/>
+        <label for="username">Username</label>
+      </div>
+      <div class = "input-field col s4" placeholder='Enter Here'>
+        <input type="password" id="password" placeholder='Enter Here' value="Password1"/>
+        <label for="password">Password</label>
+      </div>
+      <div class = "input-field col s2">
+        <a class="waves-effect waves-light btn blue darken-3" onclick="createConnection()">Connect</a>
+    </div>
+    <div class="chip col s2" id = "wsServerStatusConnected">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Red_flag.svg/2000px-Red_flag.svg.png">
+      Not Connected
+    </div>
+    </form>
+  </div>
+</div>
+
+
+
+</body>
+
+</html>

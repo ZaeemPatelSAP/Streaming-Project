@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+
+<html>
+	<head>
+		<title>Machine Event Simulator - SAP HANA Smart Data Streaming</title>
+		<style>
+			#tempSlider .slider-rangeHighlight.category1 {
+			    background: #f70616;
+			}
+
+			#tempSlider .slider-rangeHighlight.category2 {
+			    background: #99CC00;
+			}
+
+			.indent{
+				margin-left:2%;
+			}
+
+			.nav ul {
+				background-color: #444;
+				text-align: center;
+			}
+
+			.nav li {
+				font-family: 'Oswald', sans-serif;
+				width: 300px;
+				height: 50px;
+				line-height: 50px;
+				font-size: 1.2em;
+				margin-right:5%;
+				display: inline-block;
+			}
+
+			.nav a {
+				text-decoration: none;
+				color: #fff;
+				display: block;
+				transition: .3s background-color;
+			}
+
+			.nav a:hover {
+				background-color: #1565C0 !important;
+			}
+		</style>
+		<!--style>
+			fieldset { padding:0; border:0; margin-top:25px; }
+			.ui-dialog .ui-state-error { padding: .3em; }
+  </style-->
+	<script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+	<link href="http://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+	<link rel="stylesheet" href="css/materialize.css">
+	<link rel="stylesheet" href="css/bootstrap-slider.css">
+	<link rel="stylesheet" href="css/sap-materialize.css">
+	<script src="js/materialize.js"></script>
+	<script src="js/bootstrap-slider.js"></script>
+		<script>
+			//global variable declarations
+			var ws;//for WS
+			var xmlhttp;//for REST
+			var eventObject = {};
+			var eventObject1 = {};
+			var credentialsObject = {};//used for REST
+			var contentObject = {};
+			var contentObject1 = {};
+			var multipleObjects = [];
+			var jsonObj = {};
+			var jsonObj1 = {};
+			var contFunction;
+			var doorStates = [];//used when generating random posts
+			var powerStates = [];//used when generating random posts
+			var token ='';
+			var restOrws = true; // true if using rest and false if using websocket
+			var slider;
+			var sliderExists = false;
+			var done;
+
+			//function is called on page load (called from body onLoad)
+			function init(){
+				$('select').material_select();
+				setPostMethod();
+				document.getElementById("EventTime").value = "Current Time";//set event time field to current time
+				setEventValueInput();
+				$("#EventTime").trigger("change");
+			}
+
+			//set background colour of "Single Post" nav item to make it selected. called upon click
+			function setNavSingle(){
+				document.getElementById("singleLink").style.background = "#2472BF";
+				document.getElementById("contLink").style.background = "#444";
+				document.getElementById("singleDiv").style.display = "block";
+				document.getElementById("contDiv").style.display = "none";
+			}
+
+			//set background colour of "Continuous Post" nav item to make it selected. called upon click
+			function setNavContinuous(){
+				document.getElementById("contLink").style.background = "#2472BF";
+				document.getElementById("singleLink").style.background = "#444";
+				document.getElementById("contDiv").style.display = "block";
+				document.getElementById("singleDiv").style.display = "none";
+			}
+
+			//Invoked by start button
+			function sendContinuous(){
+				if(PostSelect.value != "ws"){
+					getAuthorizationToken(myFunc);
+				}
+
+				var contPostType = selectContinuousPostType.value;
+					$("#startContinuous").addClass("disabled");
+					$("#stopContinuous").removeClass("disabled");
+				if(contPostType == "random"){
+					contFunction = setInterval(createAndSendRandomPost, document.getElementById("sendDelay").value);
+				}
+
+				else{
+					var machine_id = sub_groups.value;
+					if(contPostType == "tempAlarm"){
+						contFunction = setInterval(function(){createAndSendRandomPost("temp",machine_id);}, document.getElementById("sendDelay").value);
+					}
+					else if(contPostType == "powerAlarm"){
+						createAndSendPowerAlarm(machine_id);
+						contFunction = setInterval(function(){createAndSendRandomPost("power",machine_id);}, document.getElementById("sendDelay").value);
+					}
+				}
+			}
+
+			// function test(machine_id){
+			// 	createTemperatureAlarm(machine_id);
+			// 	setTimeout(function (){
+			// 		createAndSendRandomPost();
+			// 	}, 200);
+			// }
+
+			//function starts generating and sending random event posts until stop button is pressed. Invoked by sendContinuous function's setInterval
+			function createAndSendRandomPost(){
+				var multipleObjects = createRandomTemps();
+				var ids = ["2DDDBW3TP","EKM49RTXK","RB82KMY3S","4CBH7792RN","JMD51RTKK","GGR23RTXK","8HRT4WX2"];
+				if (arguments.length != 0){
+					if (arguments[0] == "power"){
+						var index = ids.indexOf(arguments[1]);
+						if (index > -1) {
+						  ids.splice(index, 1);
+						}
+					}
+					else {
+						multipleObjects = multipleObjects.filter(machines => machines["MACHINEID"] != arguments[1]);
+						highTemp = createTemperatureAlarm(arguments[1]);
+						multipleObjects.push(highTemp);
+					}
+				}
+
+				var names = ["DOOR","POWER"];
+				var doorVals = ["Door Open","Door Closed"];
+				var powerVals = ["Power on","Power off"];
+				var machine;//will hold random index of machine id
+				var event;//will hold random index of event
+				if (doorStates.length == 0 && powerStates.length == 0){//will enter first time
+					//fill arrays to represent all doors being closed and all power being off. these arrays are used to create random but logical posts
+					for (var i = 0; i < ids.length; i ++){
+						doorStates[i] = false;
+						powerStates[i] = false;
+					}
+				}
+				contentObject = {};
+				//generate random number between 0 and length of ids
+				machine = Math.floor((Math.random() * ids.length));
+				contentObject["MACHINEID"] = ids[machine];
+				if (PostSelect.value=="ws"){//dateTime must be formatted differently
+					contentObject["EVENT_TIME"]=formatDateTime(getCurrentDateTime());
+				}else{//REST dateTime can be left alone
+					contentObject["EVENT_TIME"]=formatDateTime(getCurrentDateTime());
+				}
+				contentObject["EVENT_NAME"]=names[Math.floor((Math.random() * names.length))];//randomly pick from list of event names
+				contentObject["EVENT_DESCRIPTION"]="";//leave description blank
+				//choose event value based on event name
+				if (contentObject["EVENT_NAME"] == "DOOR"){
+					if (doorStates[machine] == false){
+						contentObject["EVENT_VALUE"] = doorVals[0];//door open
+						doorStates[machine] = true;//door is now open
+					}else{
+						contentObject["EVENT_VALUE"] = doorVals[1];//door close
+						doorStates[machine] = false;//door is now closed
+					}
+				}else if (contentObject["EVENT_NAME"] == "POWER"){
+					if (powerStates[machine] == false){
+						contentObject["EVENT_VALUE"] = powerVals[0];//power on
+						powerStates[machine] = true;//power is now on
+					}else{
+						contentObject["EVENT_VALUE"] = powerVals[1];//power off
+						powerStates[machine] = false;//power is now off
+					}
+				}
+
+				multipleObjects.push(contentObject);
+
+				//jsonObj used for websocket
+				jsonObj["stream"]=document.getElementById('streamName').value;
+				//below commented out because flags value is currently not used. May be used in later versions
+				jsonObj["data"]=[multipleObjects];
+
+				//eventObject used for REST
+				//eventObject=contentObject;
+
+				if (PostSelect.value=="ws"){
+					this.send(JSON.stringify(jsonObj));
+				}else {
+					console.log(multipleObjects);
+					sendPost(JSON.stringify(multipleObjects));
+				}
+
+				multipleObjects = [];
+			}
+
+			function createRandomTemps(){
+				multipleObjects = [];
+				var ids = ["2DDDBW3TP","EKM49RTXK","RB82KMY3S","4CBH7792RN","JMD51RTKK","GGR23RTXK","8HRT4WX2"];
+				for (var i = 0; i < ids.length; i++){
+					contentObject["MACHINEID"] = ids[i];
+					contentObject["EVENT_TIME"] = formatDateTime(getCurrentDateTime());
+					contentObject["EVENT_NAME"] = "TEMP";
+					contentObject["EVENT_DESCRIPTION"]="";
+					contentObject["EVENT_VALUE"] = String(Math.floor((Math.random() * (machine_temps[contentObject["MACHINEID"]].max_temp - machine_temps[contentObject["MACHINEID"]].min_temp)) + machine_temps[contentObject["MACHINEID"]].min_temp));
+					multipleObjects.push(contentObject);
+					contentObject = {};
+				}
+				return multipleObjects;
+
+				// //jsonObj used for websocket
+				// jsonObj["stream"]=document.getElementById('streamName').value;
+				// //below commented out because flags value is currently not used. May be used in later versions
+				// jsonObj["data"]=[multipleObjects];
+
+				// //eventObject used for REST
+				// //eventObject=contentObject;
+
+				// if (PostSelect.value=="ws"){
+				// 	this.send(JSON.stringify(jsonObj));
+				// }else {
+				// 	sendPost(JSON.stringify(multipleObjects));
+				// }
+				// multipleObjects = [];
+			}
+
+			var machine_temps = [];
+			machine_temps["2DDDBW3TP"] =
+				{
+			    	"min_temp": 35,
+			      	"max_temp": 50
+   	 			};
+   	 		machine_temps["EKM49RTXK"] = 
+				{
+			    	"min_temp": 35,
+			      	"max_temp": 50
+   	 			};
+   	 		machine_temps["RB82KMY3S"] = 
+				{
+			    	"min_temp": 35,
+			      	"max_temp": 50
+   	 			};
+   	 		machine_temps["4CBH7792RN"] = 
+				{
+			    	"min_temp": 35,
+			      	"max_temp": 50
+   	 			};
+   	 		machine_temps["JMD51RTKK"] = 
+				{
+			    	"min_temp": 2,
+			      	"max_temp": 10
+   	 			};
+   	 		machine_temps["GGR23RTXK"] = 
+				{
+			    	"min_temp": 0,
+			      	"max_temp": 32
+   	 			};
+   	 		machine_temps["8HRT4WX2"] = 
+				{
+			    	"min_temp": 0,
+			      	"max_temp": 32
+   	 			};
+
+			function createTemperatureAlarm(machine_id){
+				//createAndSendRandomPost();					
+				contentObject["MACHINEID"] = machine_id;
+				contentObject["EVENT_TIME"] = formatDateTime(getCurrentDateTime());
+				contentObject["EVENT_NAME"] = "TEMP";
+				contentObject["EVENT_DESCRIPTION"]="";
+				contentObject["EVENT_VALUE"] = String(Math.floor((Math.random() * 30) + (machine_temps[machine_id].max_temp))); //random temp. between the max temp and max+30
+				//String(Math.floor((Math.random() * 30) + 50));//random temp between 50 (max) and 80 (chosen arbitrarily)
+
+				return contentObject;
+
+				// //jsonObj used for websocket
+				// jsonObj1["stream"]=document.getElementById('streamName').value;
+				// //below commented out because flags value is currently not used. May be used in later versions
+				// jsonObj1["data"]=[contentObject1];
+
+				// //eventObject used for REST
+				// eventObject1=contentObject1;
+
+				// if (PostSelect.value=="ws"){
+				// 	this.send(JSON.stringify(jsonObj1));
+				// }else{
+				// 	sendPost(JSON.stringify(eventObject1));
+				// }
+			}
+
+			function createAndSendPowerAlarm(machine_id){
+				contentObject1["MACHINEID"] = machine_id;
+				contentObject1["EVENT_TIME"] = formatDateTime(getCurrentDateTime());
+				contentObject1["EVENT_NAME"] = "POWER";
+				contentObject1["EVENT_DESCRIPTION"]="";
+				contentObject1["EVENT_VALUE"] = "Power off";
+
+				//jsonObj used for websocket
+				jsonObj1["stream"]=document.getElementById('streamName').value;
+				//below commented out because flags value is currently not used. May be used in later versions
+				jsonObj1["data"]=[contentObject1];
+
+				//eventObject used for REST
+				eventObject1=contentObject1;
+
+				if (PostSelect.value=="ws"){
+					this.send(JSON.stringify(jsonObj1));
+				}else{
+					sendPost(JSON.stringify(eventObject1));
+				}
+			}
+
+			//function stops MES from generating and sending random event posts. Invoked by stop button
+			function requestStop(){
+				$("#startContinuous").removeClass("disabled");
+				$("#stopContinuous").addClass("disabled");
+				clearInterval(contFunction);
+			}
+
+			function contPostChanged(value){
+				if (value == "random"){
+					document.getElementById("hidden-machines").style.display = "none";
+					document.getElementById("postParagraph").innerHTML = "*Posts will be randomly generated.";
+				}
+				else if (value == "tempAlarm"){
+					document.getElementById("hidden-machines").style.display = "inline-block";
+					document.getElementById("postParagraph").innerHTML = "*Posts will trigger a temperature alarm.";
+				}
+				else if (value == "powerAlarm"){
+					document.getElementById("hidden-machines").style.display = "inline-block";
+					document.getElementById("postParagraph").innerHTML = "*Posts will trigger a power alarm.";
+				}
+			}
+
+			function showProjectUrl(){
+				if(PostSelect.value == "ws"){
+					document.getElementById("authProjectUrl").innerHTML = getProjectURL();
+					document.getElementById("authProjectUrl").style ="word-break:break-all";
+					document.getElementById("postEventHeader").style.display = "none";
+					document.getElementById("postProjectUrl").innerHTML = "";
+				}
+				else{
+					document.getElementById("authProjectUrl").innerHTML = getProjectURL("token");
+					document.getElementById("authProjectUrl").style ="word-break:break-all"
+					document.getElementById("postEventHeader").style.display = "inline";
+					document.getElementById("postProjectUrl").innerHTML = getProjectURL("postEvent");
+					document.getElementById("postProjectUrl").style ="word-break:break-all";
+				}
+				$('#projectUrlModal').openModal();
+			}
+
+			function base64_encode(data) {
+			  // discuss at: http://phpjs.org/functions/base64_encode/
+			  // original by: Tyler Akins (http://rumkin.com)
+			  // improved by: Bayron Guevara
+			  // improved by: Thunder.m
+			  // improved by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
+			  // improved by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
+			  // improved by: Rafał Kukawski (http://kukawski.pl)
+			  // bugfixed by: Pellentesque Malesuada
+			  //   example 1: base64_encode('Kevin van Zonneveld');
+			  //   returns 1: 'S2V2aW4gdmFuIFpvbm5ldmVsZA=='
+			  //   example 2: base64_encode('a');
+			  //   returns 2: 'YQ=='
+
+			  var b64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+			  var o1, o2, o3, h1, h2, h3, h4, bits, i = 0,
+				ac = 0,
+				enc = '',
+				tmp_arr = [];
+
+			  if (!data) {
+				return data;
+			  }
+
+			  do { // pack three octets into four hexets
+				o1 = data.charCodeAt(i++);
+				o2 = data.charCodeAt(i++);
+				o3 = data.charCodeAt(i++);
+
+				bits = o1 << 16 | o2 << 8 | o3;
+
+				h1 = bits >> 18 & 0x3f;
+				h2 = bits >> 12 & 0x3f;
+				h3 = bits >> 6 & 0x3f;
+				h4 = bits & 0x3f;
+
+				// use hexets to index into b64, and append result to encoded string
+				tmp_arr[ac++] = b64.charAt(h1) + b64.charAt(h2) + b64.charAt(h3) + b64.charAt(h4);
+			  } while (i < data.length);
+
+			  enc = tmp_arr.join('');
+
+			  var r = data.length % 3;
+
+			  return (r ? enc.slice(0, r - 3) : enc) + '==='.slice(r || 3);
+			}
+
+			//function gets appropriate project URL based on user selected post method
+			// typeUrl (string) to distinguish between authorization request for token or to post an event on to the server
+			// typeUrl = undefined (WebSocket)
+			// token = request token (REST)
+			// postEvent = post event
+			function getProjectURL(typeUrl){
+				if((restOrws) && !(typeUrl === "undefined")){
+					if(typeUrl == "token"){
+						return "http://" + document.getElementById('customServerREST').value +":"+document.getElementById("customPortREST").value +
+															"/1/authorization";
+					}
+					else if (typeUrl == "postEvent"){
+						return "http://" + document.getElementById('customServerREST').value +":"+document.getElementById("customPortREST").value +
+															"/1/workspaces/" + document.getElementById('workspaceREST').value + "/projects/" + document.getElementById('projectREST').value + "/streams/" +
+															document.getElementById('streamName').value;
+					}
+				}
+				else{
+					return "ws://" + document.getElementById('customServerREST').value +":"+document.getElementById("customPortREST").value +
+														"/1/workspaces/" + document.getElementById('workspaceREST').value + "/projects/" + document.getElementById('projectREST').value + "/publisher";
+				}
+			}
+
+			//function displays appropriate project server drop down menu based on user selected post method
+			function setPostMethod(){
+				restOrws = (PostSelect.value == 'rest')? true:false;
+				if(!restOrws){
+					document.getElementById('wsServerStatusConnected').style.display = "inline";
+
+					console.log(getProjectURL(),["GET"]);
+					ws = new WebSocket(getProjectURL());
+					ws.onopen = function (evnt){
+						if (ws.readyState ===1){
+							this.send("["+wsAuthorization()+"]");
+							document.getElementById('wsServerStatusConnected').innerHTML = '<img src="https://i.ytimg.com/vi/c9cDUpLYkkA/maxresdefault.jpg">'+'Connected';
+						}
+					}
+					ws.onmessage = function (evnt){
+						console.log("SOMETHING HAPPENED!!!!");
+						console.log(evnt.data);
+					}
+
+					ws.onclose = function (){
+						if (ws.readyState ===3){
+							document.getElementById('wsServerStatusConnected').innerHTML = '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Red_flag.svg/2000px-Red_flag.svg.png">'+'Not Connected';
+						}
+					}
+				}
+				else{
+					document.getElementById('wsServerStatusConnected').style.display = "none";
+					xmlhttp = new XMLHttpRequest();
+					if(ws != null){
+						ws.close();
+					}
+				}
+			}
+
+			function wsAuthorization(){
+				authObject = {};
+				privilegeObject ={};
+				authObject["authorization"]="Basic " + base64_encode(document.getElementById('username').value + ":" +document.getElementById('password').value);
+				privilegeObject["privilege"] = "write";
+				privilegeObject["resourceType"] = "stream";
+				privilegeObject["resource"] = document.getElementById('workspaceREST').value + "/" + document.getElementById('projectREST').value + "/" +
+																			document.getElementById('streamName').value;
+				return JSON.stringify(authObject)+","+JSON.stringify(privilegeObject);
+			}
+
+			//function to get authorization token
+			function getAuthorizationToken(callback){
+
+				xmlhttp.onreadystatechange = function() {
+        if(xmlhttp.readyState==4 && xmlhttp.status==200) {
+            content = xmlhttp.responseText;
+            if(content != '' && (content)) {
+              	callback(content);
+						} else {
+							callback(false);
+            }
+        	}
+				else if(xmlhttp.readyState==4 && xmlhttp.status==401){
+					callback(false);
+				}
+    		}
+				try{
+					xmlhttp.open("POST",getProjectURL("token"),false);
+				}
+				catch(err){
+					console.log('error url');
+					document.getElementById("authError").innerHTML = "Cannot connect to the server. Please check the Server Address, Port and your connection";
+					document.getElementById("authError").style.color = "red";
+				}
+				xmlhttp.setRequestHeader("authorization", "Basic " + base64_encode(document.getElementById('username').value + ":" +document.getElementById('password').value));
+				var authorizationString = '[{"privilege":"write", "resourceType":"stream", "resource": "' +
+				document.getElementById('workspaceREST').value + '/' + document.getElementById('projectREST').value + '/' +
+				document.getElementById('streamName').value + '"}]';
+				try{
+					xmlhttp.send(authorizationString);
+				}
+				catch(err){
+					console.log('error addr');
+					document.getElementById("authError").innerHTML = "Cannot connect to the server. Please check the Server Address, Port and your connection";
+					document.getElementById("authError").style.color = "red";
+				}
+			}
+
+			//function returning a string representation of the current machine date and time
+			function getCurrentDateTime(){
+				var currentDateTime;
+				var currentDate;
+				var currentTime;
+				var d = new Date();
+				var currentMonth = d.getMonth()+1;
+
+				currentDate = d.getFullYear()+"-"+currentMonth+"-"+d.getDate();
+				currentTime = pad(d.getHours(), 2)+":"+d.getMinutes()+":"+d.getSeconds()+"."+d.getMilliseconds();
+				currentDateTime = currentDate+" "+currentTime;
+				return currentDateTime;
+			}
+
+			function formatDateTime(time){
+				var newTime = "";
+				var i = 0;
+				while (time.charAt(i) != ' '){//get date
+					newTime += time.charAt(i);
+					i ++;
+				}
+				newTime += 'T';
+				i ++;
+				while (i < time.length){//get time
+					newTime += time.charAt(i);
+					i ++;
+				}
+				return newTime;
+			}
+
+			function pad(num, size) {
+    		var s = num+"";
+    		while (s.length < size) s = "0" + s;
+    		return s;
+			}
+
+			function gatherUserInputs(){
+				//below commented out because INSERT is the default value for ESP_OPS
+				contentObject["ESP_OPS"]="i";
+				contentObject["MACHINEID"]=document.getElementById("MachineID").value;
+				if (PostSelect.value=="ws"){//dateTime must be formatted differently
+					contentObject["EVENT_TIME"]=formatDateTime(getCurrentDateTime());
+				}else{//REST dateTime can be left alone
+					contentObject["EVENT_TIME"]=formatDateTime(getCurrentDateTime());
+				}
+				//EventTime = getCurrentDateTime();//reset event time field to current time
+				contentObject["EVENT_NAME"]=document.getElementById("EventName").value;
+				contentObject["EVENT_DESCRIPTION"]=document.getElementById("EventDescription").value;
+				if (document.getElementById("EventName").value=="TEMP"){
+					contentObject["EVENT_VALUE"]=document.getElementById("TemperatureValue").value;
+				} else if (document.getElementById("EventName").value=="DOOR"){
+					contentObject["EVENT_VALUE"]=document.getElementById("DoorStatus").value;
+				} else if (document.getElementById("EventName").value=="POWER"){
+					contentObject["EVENT_VALUE"]=document.getElementById("PowerStatus").value;
+				}
+				jsonObj["stream"]="MACHINEDATA";
+				//below commented out because flags value is currently not used. May be used in later versions
+				jsonObj["data"]=[contentObject];
+
+				eventObject=contentObject;
+			}
+
+			function buildAndSendJSON(){
+			var repeat = 0;
+			gatherUserInputs();
+			if(PostSelect.value == 'ws'){
+				sendPost(JSON.stringify(jsonObj));
+				return;
+			}
+			if(token == ''){
+					getAuthorizationToken(myFunc);
+			}
+			sendPost(JSON.stringify(eventObject));
+			}
+
+			function myFunc (content){
+				if(content != ''){
+					var split_Token = content.split("{")[1];
+					var split_Token = split_Token.split("}")[0];
+					split_Token = split_Token.replace(":", "=")
+					token = split_Token;
+				}
+				else if(content == false){
+					token = '';
+				}
+			}
+
+			function sendPost(message){
+				if (PostSelect.value == 'ws'){
+					this.send(message);
+				}
+				else{
+					xmlhttp.onreadystatechange = function(){
+						if((xmlhttp.readyState == 4) && ((xmlhttp.status == 419)|| (xmlhttp.status == 401))){
+							token = '';
+							getAuthorizationToken(myFunc);
+							if(token !== ''){
+								sendPost(message);
+							}
+							else{
+								document.getElementById("authError").innerHTML = "Authentication Error. Double check the username/password";
+								document.getElementById("authError").style.color = "red";
+							}
+						}
+						else if((xmlhttp.readyState == 4) && xmlhttp.status == 404){
+							document.getElementById("authError").innerHTML = "Streaming Project not found. Make sure your project is running, and check the config parameters";
+							document.getElementById("authError").style.color = "red";
+						}
+						else if((xmlhttp.readyState == 4) && xmlhttp.status == 200){
+							document.getElementById("authError").innerHTML = "Request sent successfully";
+							document.getElementById("authError").style.color = "green";
+						}
+					}
+					xmlhttp.open("POST", getProjectURL("postEvent"), true);
+					xmlhttp.setRequestHeader("authorization", getAuthToken());
+					if (message[0] == "["){
+						xmlhttp.send(message);
+					}
+					else {
+						xmlhttp.send("["+message+"]");
+					}
+				}
+			}
+
+			function getAuthToken(){
+				return 'SWS-Token ' + token;
+			}
+
+			//function tries to send JSON post but if Websocket is not yet open, waits 1 second and then tries again
+			this.send = function (message, callback) {
+				this.waitForConnection(function () {
+					ws.send(message);
+					if (typeof callback !== 'undefined') {
+						callback();
+					}
+				}, 1000);
+			};
+
+			//utility function to determine whether Websocket is open
+			this.waitForConnection = function (callback, interval) {
+				if (ws.readyState === 1) {
+					callback();
+				} else {
+					if (ws.readyState === 3){
+						ws = new WebSocket(getProjectURL());
+					}
+					var that = this;
+					setTimeout(function () {
+						that.waitForConnection(callback, interval);
+					}, interval);
+				}
+			};
+
+			//function to display appropriate inputs
+			function setEventValueInput(){
+				if (document.getElementById("EventName").value=="TEMP"){
+					$('select').material_select('destroy');
+					document.getElementById("DoorStatus").className = "browser-default";
+					document.getElementById("PowerStatus").className = "browser-default";
+
+					//Create Slider
+					if(!sliderExists){
+					sliderExists = true;
+					slider = new Slider("#TemperatureValue", {
+					    id: 'tempSlider',
+					    min: -20,
+					    max: 80,
+					    step: 1,
+					    value: 30,
+					    rangeHighlights: [{ "start": -20, "end": 35, "class": "category1" },
+					                      { "start": 35, "end": 50, "class": "category2" },
+					                      { "start": 50, "end": 80, "class": "category1"}]});
+					}
+
+					document.getElementById("TemperatureValue").style.display = "inline";
+					// document.getElementById("TemperatureValueLabel").style.display = "inline";
+				  // document.getElementById("sliderDiv").style.display = "";
+					document.getElementById("DoorStatus").style.display = "none";
+					document.getElementById("PowerStatus").style.display = "none";
+					document.getElementById("DoorStatusLabel").style.display = "none";
+					document.getElementById("PowerStatusLabel").style.display = "none";
+					$('select').material_select();
+				} else if (document.getElementById("EventName").value=="DOOR"){
+					$('select').material_select('destroy');
+					document.getElementById("DoorStatus").className = "";
+					document.getElementById("PowerStatus").className = "browser-default";
+					if(sliderExists){
+						sliderExists = false;
+						slider.destroy();
+					}
+					document.getElementById("TemperatureValue").style.display = "none";
+					// document.getElementById("TemperatureValueLabel").style.display = "none";
+				  // document.getElementById("sliderDiv").style.display = "none";
+					document.getElementById("DoorStatus").className = "";
+					document.getElementById("PowerStatus").className = "browser-default";
+					document.getElementById("PowerStatus").style.display = "none";
+					document.getElementById("DoorStatusLabel").style.display = "inline";
+					document.getElementById("PowerStatusLabel").style.display = "none";
+					$('select').material_select();
+				} else if (document.getElementById("EventName").value=="POWER"){
+					$('select').material_select('destroy');
+					document.getElementById("DoorStatus").className = "browser-default";
+					document.getElementById("PowerStatus").className = "";
+					if(sliderExists){
+						sliderExists = false;
+						slider.destroy();
+					}
+					document.getElementById("TemperatureValue").style.display = "none";
+					// document.getElementById("TemperatureValueLabel").style.display = "none";
+				  // document.getElementById("sliderDiv").style.display = "none";
+					document.getElementById("DoorStatus").className = "browser-default";
+					document.getElementById("PowerStatus").className = "";
+					document.getElementById("DoorStatus").style.display = "none";
+					document.getElementById("DoorStatusLabel").style.display = "none";
+					document.getElementById("PowerStatusLabel").style.display = "inline";
+					$('select').material_select();
+				}
+			}
+		</script>
+		<link rel="icon" href="sap.ico">
+	</head>
+
+<body onLoad="init()">
+		<div class="title" style="display: inline-block; vertical-align: middle; width: 100%;">
+		  <img class="logo" style="height: 60px; margin:10px;float: left;" src="sap.png"/>
+		  <h3>Machine Event Simulator</h3>
+		</div>
+
+		 <div class="nav" style="margin-top: -15px;">
+			<ul>
+				<li id="singleNav"><a id="singleLink" href="#" onclick="setNavSingle()" style="background-color: #2472BF;">Single Post</a></li>
+				<li id="contNav"><a id="contLink" href="#" onclick="setNavContinuous()">Continuous Post</a></li>
+			</ul>
+		</div>
+
+		<div id="main" style="margin-left:5%">
+			<div id="PostMethod" class ="row" onchange="setPostMethod()">
+				<div class="input-field col s6 right-align">
+					<h4>Select the post method:</h4>
+				</div>
+				<div class="input-field col s3" style="padding-top: 12px">
+					<select id="PostSelect">
+						<option value="rest" selected>REST</option>
+						<option value="ws">WebSocket</option>
+					</select>
+					<label for="PostSelect">Post Method</label>
+				</div>
+			</div>
+			<div>
+				<h4>SDS Project Server Config</h4><span id="authError" style="font-weight: bold; color:red;"></span>
+				<div id="customServerOptionREST">
+					<div class="row">
+						<form class="col s12">
+							<div class = "input-field col s4">
+								<input type="text" id="customServerREST" placeholder='<server-url>' value = "mo-a90ef26e8.mo.sap.corp"/>
+								<label for="customServerREST">Server address</label>
+							</div>
+							<div class = "input-field col s2">
+								<input type="text" id="customPortREST" placeholder='<port>' value = "9093"/>
+								<label for="customPortREST">Port</label>
+							</div>
+							<div class = "input-field col s2">
+								<input type="text" id="workspaceREST" value="default" value = "default" placeholder='Enter Here'/>
+								<label for="workspaceREST">Workspace name</label>
+							</div>
+							<div class = "input-field col s2">
+								<input type="text" id="projectREST" value="freezer_monitoring_final" placeholder='Enter Here'/>
+								<label for="projectREST">Project name</label>
+							</div>
+							<div class = "input-field col s2">
+								<input type="text" id="streamName" value="MACHINEDATA" placeholder='Enter Here'/><br><br>
+								<label for="streamName">Stream name</label>
+							</div>
+							<div class = "input-field col s4">
+								<input type="text" id="username" placeholder='Enter Here' value = "STREAMING_USER"/>
+								<label for="username">Username</label>
+							</div>
+							<div class = "input-field col s4" placeholder='Enter Here'>
+								<input type="password" id="password" placeholder='Enter Here' value = "Password1" />
+								<label for="password">Password</label>
+							</div>
+							<div class = "input-field col s2">
+								<a class="waves-effect waves-light btn blue darken-3" onclick="showProjectUrl()">View Url</a>
+						</div>
+						<div class="chip col s2" id = "wsServerStatusConnected">
+    					<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Red_flag.svg/2000px-Red_flag.svg.png">
+    					Not Connected
+  					</div>
+						</form>
+					</div>
+				</div>
+			<div style="float:right; margin-right:15%;" id="responseField">
+				<!-- Will be filled with SDS Project Server URL by JS during runtime -->
+			</div>
+
+			<div id="singleDiv">
+				<h4>Single post event parameters:</h4>
+				<div class="row">
+					<form class = "col s12">
+						<div class="row">
+							<div class = "input-field col s6">
+								<!-- TODO: Fill with SDS Project Machines by JS during runtime -->
+								<select name="Machine IDs" id="MachineID">
+									<option value="2DDDBW3TP">2DDDBW3TP</option>
+									<option value="EKM49RTXK">EKM49RTXK</option>
+									<option value="RB82KMY3S">RB82KMY3S</option>
+									<option value="4CBH7792RN">4CBH7792RN</option>
+									<option value="JMD51RTKK">JMD51RTKK</option>
+									<option value="GGR23RTXK">GGR23RTXK</option>
+									<option value="8HRT4WX2">8HRT4WX2</option>
+								</select>
+								<label for="MachineID">Machine ID</label>
+							</div>
+						<div class = "input-field col s6">
+								<input type="text" name="eventtime" value="" id="EventTime">
+								<label for="EventTime">Event Time</label>
+						</div>
+
+						<div class = "input-field col s6">
+							<select id="EventName" onChange="setEventValueInput()">
+								<option value="DOOR" selected>DOOR</option>
+								<option value="POWER">POWER</option>
+								<option value="TEMP">TEMP</option>
+							</select>
+							<label for="EventName">Event Name</label>
+						</div>
+
+						<div class="input-field col s6">
+							<select id="selectAction">
+								<option value="insert" selected>Insert</option>
+								<option value="update">Update</option>
+								<option value="upsert">Upsert</option>
+								<option value="delete">Delete</option>
+							</select>
+							<label for="selectAction">Action</label>
+						</div>
+
+						<div class = "input-field col s12">
+							<input type = "text" name="eventdescription" placeholder="Enter event description here" id="EventDescription" value = "sws">
+							<label for="EventDescription">Event Description</label>
+						</div>
+						<div class = "input-field col s6" id = "inputDiv">
+						  <input type="text" name="eventvalue" size="8" value="50" id="TemperatureValue" >
+							<select id="DoorStatus">
+								<option value="Door Open" selected>Door Open</option>
+								<option value="Door Close">Door Close</option>
+							</select>
+							<select id="PowerStatus">
+								<option value="Power on" selected>Power On</option>
+								<option value="Power off">Power Off</option>
+							</select>
+							<label id = "DoorStatusLabel" for="DoorStatus">Door Status</label>
+							<label id ="PowerStatusLabel" for="PowerStatus">Power Status</label>
+						</div>
+						<div class = "input-field col s6" id="sliderDiv">
+
+						<!-- For now, hardcode one of these for each Machine. If you would like to use a different slider, check out http://seiyria.com/bootstrap-slider/ -->
+						<input id="TemperatureValue" type="text" style="display:none"
+									 data-slider-id="tempSlider"
+									 data-slider-min="-20"
+									 data-slider-max="80"
+									 data-slider-step="1"
+									 data-slider-value="30"
+									 data-slider-rangeHighlights='[{ "start": -20, "end": 35, "class": "category1" },
+																									{ "start": 35, "end": 50, "class": "category2" },
+																									{ "start": 50, "end": 80, "class": "category1"}]' />
+							<!-- <label for="TemperatureValue" id ="TemperatureValueLabel">Event Value</label>
+							<input id="TemperatureValue" type="text" data-slider-value="200" data-slider-ticks="[0, 100, 200, 300, 400]" data-slider-ticks-snap-bounds="30" data-slider-ticks-labels='["$0", "$100", "$200", "$300", "$400"]'/> -->
+						</div>
+						<div class = "input-field col s6" id="buttonDiv">
+							<a class="waves-effect waves-light btn blue darken-3" onclick="buildAndSendJSON()">Build & Send JSON Post</a>
+						</div>
+					</div>
+					</form>
+				</div>
+			</div>
+
+			<div id="contDiv" class = "row" style="display:none;">
+				<h4>Continuous post options:</h4>
+				<div class = "row">
+					<div class="input-field col s4">
+						<select id="selectContinuousPostType" onchange="contPostChanged(this.value);">
+							<option value="random" selected>Random</option>
+							<option value="tempAlarm">Trigger Temperature Alarm</option>
+							<option value="powerAlarm">Trigger Power Alarm</option>
+						</select>
+						<label for="selectContinuousPostType">Type of Continuous Post</label>
+					</div>
+					<div id="hidden-machines" class="input-field col s4" style="display:none;">
+						<select id="sub_groups">
+						    <option value='2DDDBW3TP'>2DDDBW3TP</option>
+						    <option value='GGR23RTXK'>GGR23RTXK</option>
+						    <option value='8HRT4WX2'>8HRT4WX2</option>
+						    <option value='4CBH7792RN'>4CBH7792RN</option>
+						    <option value='RB82KMY3S'>RB82KMY3S</option>
+						    <option value='JMD51RTKK'>JMD51RTKK</option>
+						</select>
+					</div>
+				</div>
+
+			<div>
+				<div class="input-field col s12" style="margin-top: 0px">
+					<p id="postParagraph" style="font-style: italic;">*Posts will be randomly generated.</p>
+					<form>
+						<div class = "input-field col s6">
+						<input type="text" size="8" value="3000" id="sendDelay">
+						<label for="sendDelay">Send Delay (ms)</label>
+						</div>
+					</form>
+				</div>
+				<div class = "input-field col s6">
+					<a class="waves-effect waves-light btn blue darken-3" id="startContinuous" onclick="sendContinuous()">Start</a>
+				</div>
+				<div class = "input-field col s6">
+					<a class="waves-effect waves-light btn disabled blue darken-3" id="stopContinuous" onclick="requestStop()">Cancel</a>
+				</div>
+			</div>
+
+			<div id="sendLog" style="margin-top:2%;">
+				<!-- Below is a textarea that could be used to log success/failures when sending -->
+				<!--<textarea readonly rows="5" cols="50" id="logTextarea" style="resize: none;"></textarea>-->
+			</div>
+		</div>
+
+		<div id="projectUrlModal" class="modal">
+    	<div class="modal-content">
+      	<h4>Authorization</h4>
+      	<p id ="authProjectUrl"></p><br>
+				<h4 id = "postEventHeader">Post Event</h4>
+      	<p id = "postProjectUrl"></p>
+    	</div>
+    	<div class="modal-footer">
+      	<a class=" modal-action modal-close waves-effect waves-blue sap btn-flat" >Dismiss</a>
+    	</div>
+  	</div>
+	</body>
+</html>

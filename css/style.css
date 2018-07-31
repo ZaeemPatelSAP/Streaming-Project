@@ -1,0 +1,351 @@
+.axis path, .axis line
+{
+    fill: none;
+    stroke: #777;
+    shape-rendering: crispEdges;
+}
+
+.axis text
+{
+    font-family: 'Arial';
+    font-size: 13px;
+}
+.tick
+{
+    stroke-dasharray: 1, 2;
+}
+.bar
+{
+    fill: FireBrick;
+}
+
+.active-btn{background-color:#2472BF}
+.inactive-btn{background-color:#444444}
+
+.chart-style {
+  border: 1px solid grey;
+  padding: 10px;
+  text-align: center;
+  background: white;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.8);
+  border-top: 2px solid black;
+}
+
+.chart {
+  width: 85%;
+  display: inline-block;
+}
+
+body {
+  /*background: linear-gradient(rgba(59, 148, 249, 0.6), white);*/
+  padding: 0;
+  margin: 0;
+  font-family: 'Oswald', sans-serif;
+}
+
+.navbar {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    background-color: #444444;
+    height: 60px;
+    margin-bottom: 3%;
+}
+
+ul {
+  margin-top: 0;
+}
+
+li {
+  display: inline;
+}
+
+li button {
+  height: 60px;
+  width: 200px;
+  margin: 0;
+  border: none;
+  font-size: 18px;
+  color: white;
+  transition: 0.2s;
+}
+
+li button:hover, button:active {
+  background-color: #2472BF;
+}
+
+.title {
+  display: inline-block;
+  vertical-align: middle;
+  width: 100%;
+}
+
+.title h2{
+  padding-top: 15px;
+}
+
+.logo {
+  height: 60px;
+  margin: 10px;
+  float: left;
+}
+
+th, td {
+  padding: 12px;
+  text-align: center;
+  border-bottom: 1px solid grey;
+}
+
+th {
+  padding: 2%;
+  background-color: #2472BF;
+  color: white;
+}
+
+table {
+  width: 94%;
+  border-collapse: collapse;
+  border-collapse: collapse;
+  background-color: rgba(255,255,255,0.8);
+  border: 1px solid grey;
+  padding: 2%;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.8);
+  border-top: 5px solid black;
+}
+
+tr:nth-child(odd) {background-color:rgb(247, 249, 252)}
+
+
+#dashboard-chart {
+  width: 60%;
+  align: center;
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+#min {
+  float: left;
+  font-size: 10px;
+  margin-top: 3px;
+}
+
+#max {
+  float: right;
+  font-size: 10px;
+  margin-top: 3px;
+}
+
+/* The slider itself */
+.slider {
+    -webkit-appearance: none;  /* Override default CSS styles */
+    appearance: none;
+    width: 100%; /* Full-width */
+    height: 25px; /* Specified height */
+    margin-top: 10px;
+    background: #d3d3d3; /* Grey background */
+    outline: none; /* Remove outline */
+    -webkit-transition: .2s; /* 0.2 seconds transition on hover */
+    transition: opacity .2s;
+    background: linear-gradient(to right, rgb(0, 50, 131),red);
+}
+
+/* Mouse-over effects */
+.slider:hover {
+    opacity: 0.8; /* Fully shown on mouse-over */
+}
+
+/* The slider handle (use webkit (Chrome, Opera, Safari, Edge) and moz (Firefox) to override default look) */
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none; /* Override default look */
+    appearance: none;
+    width: 5px; /* Set a specific slider handle width */
+    height: 25px; /* Slider handle height */
+    background: white; /* Green background */
+    cursor: pointer; /* Cursor on hover */
+}
+
+.slider::-moz-range-thumb {
+    width: 5px; /* Set a specific slider handle width */
+    height: 25px; /* Slider handle height */
+    background: white; /* Green background */
+    cursor: pointer; /* Cursor on hover */
+}
+
+.filled-circle {
+  padding: 2px 2px;
+  border-radius: 100%;
+  height: 25px;
+  width: 25px;
+  display: block;
+}
+
+.link-btn, .link-btn:active, .link-btn:visited {
+  background-color: white;
+  padding: 34px 46px;
+  border: none;
+  border-radius: 9px;
+  width: 70%;
+  font-size: 30px;
+  color: black;
+}
+
+.link-btn:hover {
+  background-color: #eeeeee;
+}
+.btn {
+  background-color: #2472BF;
+  color: white;
+  padding: 8px 15px;
+  border: none;
+  border-radius: 9px;
+}
+
+.btn:hover {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.8);
+}
+
+.m_id {
+  /*background-color: rgb(54, 162, 235);*/
+  background-color: rgb(0, 50, 131);
+  padding: 10px;
+  color: white;
+  border-radius: 8px;
+  border: solid 2px rgb(0, 50, 131);
+  width: 110px;
+}
+
+.m_id:hover, .m_id:active, .m_id:focus {
+  border: solid 2px rgb(0, 50, 131);
+  background-color: white;
+  color: black;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.config-tab {
+  display: none;
+  width: 95%;
+  margin: auto;
+}
+
+.tooltip {
+    padding: 13px 13px;
+    border-radius: 100%;
+    position: relative;
+    display: inline-block;
+    border-bottom: 1px dotted black;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 120px;
+    background-color: black;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px 2px;
+    top:150%;
+    left:50%;
+    margin-left: -60px;
+
+    /* Position the tooltip */
+    position: absolute;
+    z-index: 1;
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+}
+
+.tooltip .tooltiptext::after {
+    content: " ";
+    position: absolute;
+    bottom: 100%;  /* At the top of the tooltip */
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: transparent transparent black transparent;
+}
+
+
+.landing-page {
+  background-color: #1565C0;
+  height: 70vh;
+  vertical-align: middle;
+}
+
+.row {
+  padding-top: 20vh;
+  display: block;
+}
+
+.column {
+  width: 50%;
+  text-align: center;
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+
+.col-right {
+  border-left: 1px white solid;
+  width: 49.5%
+}
+
+/*Zaeem*/
+#machine-info{
+  padding-left: 0px;
+}
+
+#machine-info li{
+  display: block;
+}
+
+table.GeneratedTable {
+  width: 100%;
+  background-color: #ffffff;
+  border-collapse: collapse;
+  border-width: 2px;
+  border-color: #2472bf;
+  border-style: solid;
+  color: #000000;
+}
+
+table.GeneratedTable td, table.GeneratedTable th {
+  border-width: 2px;
+  border-color: #2472bf;
+  border-style: solid;
+  padding: 3px;
+}
+
+table.GeneratedTable thead {
+  background-color: #2472bf;
+}
+
+div.info {
+  margin-left: 40px;
+}
+
+/*div.graph-tab.row {
+  display: inline !important;
+}*/
+
+li span#dot.tooltip{
+  vertical-align: middle;
+  padding: 10px 10px;
+}
+
+#inventory-table{
+  margin-bottom: 25px;
+}
+
+#reset-button {
+  background: #2472bf;
+  border-radius: 100px;
+  padding: 5px 20px;
+  color: #fff;
+  text-decoration: none;
+  font-size: 1em;
+  margin: 0 15px;
+}
